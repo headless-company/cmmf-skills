@@ -2,7 +2,11 @@ import path from "node:path";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
-export async function createCmmfSourceFixture(): Promise<string> {
+interface CmmfSourceFixtureOptions {
+  specFiles?: Record<string, string>;
+}
+
+export async function createCmmfSourceFixture(options: CmmfSourceFixtureOptions = {}): Promise<string> {
   const root = await mkdtemp(path.join(tmpdir(), "cmmf-spec-fixture-"));
   await mkdir(path.join(root, "schemas"), { recursive: true });
   await mkdir(path.join(root, "spec"), { recursive: true });
@@ -58,11 +62,12 @@ export async function createCmmfSourceFixture(): Promise<string> {
     ),
     "utf8",
   );
-  await writeFile(
-    path.join(root, "spec/cmmf-v1.md"),
-    "# CMMF v1\n\n## Overview\n\nPortable content model format.\n\n## Model kinds\n\n- entry\n- object\n",
-    "utf8",
-  );
+  const specFiles = options.specFiles ?? {
+    "cmmf-v1.1.0.md": "# CMMF v1.1.0\n\n## Overview\n\nPortable content model format.\n\n## Model kinds\n\n- entry\n- object\n",
+  };
+  for (const [fileName, content] of Object.entries(specFiles)) {
+    await writeFile(path.join(root, "spec", fileName), content, "utf8");
+  }
   await writeFile(
     path.join(root, "docs/relationships.md"),
     "# Relationships\n\nUse object for embedded structures and reference for reusable content.\n",

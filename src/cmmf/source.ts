@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -78,12 +78,16 @@ export function formatCmmfSource(source: CmmfSource): string {
 
 async function tryLoadCmmfSource(rootDir: string): Promise<CmmfSource | null> {
   const schemaPath = path.join(rootDir, "schemas/model.schema.json");
-  const specPath = path.join(rootDir, "spec/cmmf-v1.md");
   const relationshipsDocPath = path.join(rootDir, "docs/relationships.md");
-  const requiredFiles = [schemaPath, specPath, relationshipsDocPath];
+  const requiredFiles = [schemaPath, relationshipsDocPath];
 
   const exists = await Promise.all(requiredFiles.map((filePath) => pathExists(filePath)));
   if (!exists.every(Boolean)) {
+    return null;
+  }
+
+  const specPath = await findLatestSpecPath(path.join(rootDir, "spec"));
+  if (!specPath) {
     return null;
   }
 
@@ -119,6 +123,47 @@ async function getGitMetadata(rootDir: string): Promise<Pick<CmmfSource, "revisi
       remoteUrl: null,
     };
   }
+}
+
+async function findLatestSpecPath(specDir: string): Promise<string | null> {
+  if (!(await pathExists(specDir))) {
+    return null;
+  }
+
+  const entries = await readdir(specDir, { withFileTypes: true });
+  const candidates = entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => ({
+      name: entry.name,
+      version: parseSpecVersion(entry.name),
+    }))
+    .filter((entry): entry is { name: string; version: number[] } => entry.version !== null)
+    .sort((left, right) => compareVersions(right.version, left.version));
+
+  const latest = candidates[0];
+  return latest ? path.join(specDir, latest.name) : null;
+}
+
+function parseSpecVersion(fileName: string): number[] | null {
+  const match = /^cmmf-v(\d+(?:\.\d+)*)\.md$/i.exec(fileName);
+  if (!match) {
+    return null;
+  }
+
+  return match[1].split(".").map((part) => Number.parseInt(part, 10));
+}
+
+function compareVersions(left: number[], right: number[]): number {
+  const maxLength = Math.max(left.length, right.length);
+  for (let index = 0; index < maxLength; index += 1) {
+    const leftPart = left[index] ?? 0;
+    const rightPart = right[index] ?? 0;
+    if (leftPart !== rightPart) {
+      return leftPart - rightPart;
+    }
+  }
+
+  return 0;
 }
 
 function truncate(value: string, maxLength: number): string {

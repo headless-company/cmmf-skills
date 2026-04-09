@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import path from "node:path";
 import { createCmmfSourceFixture } from "../test-support/cmmf-source-fixture.js";
 import { loadSpecExcerpt, resolveCmmfSource } from "./source.js";
 import { createCmmfValidators } from "./validate.js";
@@ -21,4 +22,20 @@ test("loadSpecExcerpt includes repository and spec text", async () => {
 
   assert.match(excerpt, /CMMF v1/);
   assert.match(excerpt, /Relationships/);
+});
+
+test("resolveCmmfSource selects the latest versioned CMMF spec file", async () => {
+  const fixture = await createCmmfSourceFixture({
+    specFiles: {
+      "cmmf-v1.md": "# CMMF v1\n",
+      "cmmf-v1.2.md": "# CMMF v1.2\n",
+      "cmmf-v1.10.0.md": "# CMMF v1.10.0\n",
+      "translation-contract-v1.1.0.md": "# Translation contract\n",
+      "cmmf-vnext.md": "# Invalid\n",
+    },
+  });
+
+  const source = await resolveCmmfSource(fixture);
+
+  assert.equal(path.basename(source.specPath), "cmmf-v1.10.0.md");
 });
