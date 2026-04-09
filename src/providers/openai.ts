@@ -1,14 +1,17 @@
 import OpenAI from "openai";
+import { normalizeAgentTurnIdentifiers } from "../agent/normalize.js";
 import { agentTurnSchema } from "../types.js";
 import type { AgentProvider, ProviderInput } from "./base.js";
 import { resolveDefaultModel } from "./base.js";
+
+const identifierPattern = "^[a-z0-9_-]+$";
 
 const questionSchema = {
   type: "object",
   additionalProperties: false,
   required: ["id", "question", "reason", "inputType"],
   properties: {
-    id: { type: "string", pattern: "^[a-z0-9_-]+$" },
+    id: { type: "string", pattern: identifierPattern },
     question: { type: "string" },
     reason: { type: "string" },
     inputType: { type: "string", enum: ["text", "choice"] },
@@ -21,7 +24,7 @@ const fieldSchema = {
   additionalProperties: false,
   required: ["id", "type"],
   properties: {
-    id: { type: "string" },
+    id: { type: "string", pattern: identifierPattern },
     name: { type: "string" },
     description: { type: "string" },
     type: {
@@ -35,8 +38,8 @@ const fieldSchema = {
     validations: { type: "object" },
     editorial: { type: "object" },
     relation: { type: "object" },
-    objectType: { type: "string" },
-    targets: { type: "array", items: { type: "string" } },
+    objectType: { type: "string", pattern: identifierPattern },
+    targets: { type: "array", items: { type: "string", pattern: identifierPattern } },
     values: { type: "array", items: { type: "string" } },
     translationHints: { type: "object" },
   },
@@ -47,7 +50,7 @@ const modelSchema = {
   additionalProperties: false,
   required: ["id", "name", "kind", "fields"],
   properties: {
-    id: { type: "string" },
+    id: { type: "string", pattern: identifierPattern },
     name: { type: "string" },
     kind: { type: "string", enum: ["entry", "component", "object", "taxonomy", "settings"] },
     description: { type: "string" },
@@ -158,6 +161,7 @@ export class OpenAIProvider implements AgentProvider {
       throw new Error(`OpenAI did not return a tool call. Output text: ${response.output_text ?? "(empty)"}`);
     }
     const args = JSON.parse(toolCall.arguments ?? "{}");
-    return agentTurnSchema.parse(toolCall.name === "request_clarification" ? { type: "request_clarification", ...args } : { type: "submit_change_set", ...args });
+    const payload = toolCall.name === "request_clarification" ? { type: "request_clarification", ...args } : { type: "submit_change_set", ...args };
+    return agentTurnSchema.parse(normalizeAgentTurnIdentifiers(payload));
   }
 }

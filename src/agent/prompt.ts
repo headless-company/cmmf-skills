@@ -20,6 +20,8 @@ export function buildSystemPrompt(): string {
     "Use request_clarification only when the instruction leaves a material ambiguity about object vs reference, relation cardinality or ownership, enum values, reuse of an existing model/object, or required/localisation defaults that would change the schema.",
     "Otherwise use submit_change_set.",
     "Generate valid CMMF v1 models only.",
+    "Every model ID, field ID, and clarification question ID must match ^[a-z0-9_-]+$.",
+    "Use names for human-readable labels and keep IDs as lowercase identifiers only; never put spaces, punctuation, or title-cased labels into an ID.",
     "When updating existing repos, preserve existing model IDs and structure. Only propose additive field updates, new relationships, and safe metadata enrichment.",
     "Never rename, remove, or rewrite existing models without explicit user approval.",
     "Prefer reusing an existing model or object when the repository already contains a clear match.",

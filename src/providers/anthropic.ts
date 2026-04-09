@@ -1,12 +1,15 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { normalizeAgentTurnIdentifiers } from "../agent/normalize.js";
 import { agentTurnSchema } from "../types.js";
 import type { AgentProvider, ProviderInput } from "./base.js";
 import { resolveDefaultModel } from "./base.js";
 
+const identifierPattern = "^[a-z0-9_-]+$";
+
 const questionSchema = {
   type: "object",
   properties: {
-    id: { type: "string" },
+    id: { type: "string", pattern: identifierPattern },
     question: { type: "string" },
     reason: { type: "string" },
     inputType: { type: "string", enum: ["text", "choice"] },
@@ -19,7 +22,7 @@ const questionSchema = {
 const fieldSchema = {
   type: "object",
   properties: {
-    id: { type: "string" },
+    id: { type: "string", pattern: identifierPattern },
     name: { type: "string" },
     description: { type: "string" },
     type: { type: "string" },
@@ -30,8 +33,8 @@ const fieldSchema = {
     validations: { type: "object" },
     editorial: { type: "object" },
     relation: { type: "object" },
-    objectType: { type: "string" },
-    targets: { type: "array", items: { type: "string" } },
+    objectType: { type: "string", pattern: identifierPattern },
+    targets: { type: "array", items: { type: "string", pattern: identifierPattern } },
     values: { type: "array", items: { type: "string" } },
     translationHints: { type: "object" },
   },
@@ -93,7 +96,7 @@ export class AnthropicProvider implements AgentProvider {
                         model: {
                           type: "object",
                           properties: {
-                            id: { type: "string" },
+                            id: { type: "string", pattern: identifierPattern },
                             name: { type: "string" },
                             kind: { type: "string" },
                             description: { type: "string" },
@@ -132,6 +135,6 @@ export class AnthropicProvider implements AgentProvider {
     const payload = toolUse.name === "request_clarification"
       ? { type: "request_clarification", ...toolUse.input }
       : { type: "submit_change_set", ...toolUse.input };
-    return agentTurnSchema.parse(payload);
+    return agentTurnSchema.parse(normalizeAgentTurnIdentifiers(payload));
   }
 }
