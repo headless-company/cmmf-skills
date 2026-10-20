@@ -1,236 +1,60 @@
-# Project Guide
-
-## Purpose
-
-The CMMF Creation Agent is a CLI-first developer tool that converts natural-language content modeling requests into valid CMMF v1 YAML. It is designed for two primary modes:
-
-- greenfield generation in a new CMMF repository
-- safe extension of an existing CMMF repository
-
-The core product goal is to preserve modeling intent while keeping the resulting output deterministic, reviewable, and valid against the CMMF spec.
-
-## User Workflow
-
-### Inspect
-
-`inspect` summarizes the target repository:
-
-- repo root
-- manifest path
-- models directory
-- model count
-- model inventory with relationship/object density
-
-This is useful for quickly understanding an existing CMMF repo before generating changes.
-
-### Validate
-
-`validate` checks:
-
-- manifest structure against the local manifest rules
-- each model against the canonical CMMF v1 model schema loaded from a CMMF repo checkout plus stricter runtime validation
-
-The command exits non-zero on validation failure.
-
-### Generate
-
-`generate` is the primary workflow:
-
-1. Discover the target repo.
-2. Load the manifest and models.
-3. Build a repo graph with:
-   - existing models by ID
-   - reference relationships
-   - object embeddings
-4. Rank the most relevant existing models for the current prompt.
-5. Send a compact but high-signal prompt to the chosen provider.
-6. Receive either:
-   - `request_clarification`
-   - `submit_change_set`
-7. Validate the proposed manifest/models.
-8. Enforce safe-update rules on existing models.
-9. Preview the full YAML change set.
-10. Write only after explicit confirmation.
-
-## Clarification Policy
-
-The agent should only ask follow-up questions when the answer materially changes the resulting schema. The current implementation is designed around these ambiguity classes:
-
-- `object` versus `reference`
-- relationship `cardinality`
-- relationship `ownership`
-- reuse of an existing model versus creating a new one
-- enum values
-- required/localisation behavior when the prompt implies it but does not define it clearly
-
-## Safety Rules For Existing Repositories
-
-When updating an existing model, the agent currently blocks:
-
-- model kind changes
-- field removal
-- field type changes
-- `list` flag changes
-- `objectType` changes
-- requiredness changes from optional to required
-- target removal or target replacement for reference fields
-- relationship `cardinality` changes
-- relationship `ownership` changes
-
-This keeps v1 biased toward additive, reviewable changes instead of autonomous refactors.
-
-## Authentication
-
-### Supported
-
-- `OPENAI_API_KEY`
-- `ANTHROPIC_API_KEY`
-
-### Recommended Local Setup
-
-Use `direnv` with a repo-local `.envrc`:
-
-```bash
-export OPENAI_API_KEY="your_openai_api_key_here"
-export CMMF_AGENT_PROVIDER="openai"
-export CMMF_SPEC_REPO_PATH="../content-model-master-format"
-```
-
-Then run:
-
-```bash
-direnv allow
-```
-
-Why this approach is recommended:
-
-- credentials stay local to this repository
-- no global shell profile changes are required
-- `.envrc` is gitignored
-- `.envrc.example` documents the expected shape for contributors
-
-### Not Supported
-
-- ChatGPT Pro login as a substitute for API access
-- Claude subscription login as a substitute for API access
-
-## Provider Architecture
-
-The provider layer is intentionally split into:
-
-- a shared agent contract in the runtime types
-- one adapter for OpenAI
-- one adapter for Anthropic
-
-Each provider must return one of two high-level outcomes:
-
-- `request_clarification`
-- `submit_change_set`
-
-This keeps the CLI and safety logic independent from any one model vendor.
-
-## CMMF Runtime Architecture
-
-### Parsing And Graphing
-
-`src/cmmf/repo.ts` loads the manifest and all YAML model files, then builds a graph containing:
-
-- the manifest and models directory
-- parsed models
-- references from one model to others
-- object embeddings
-
-### Validation
-
-`src/cmmf/validate.ts` combines:
-
-- the JSON schema loaded directly from the configured CMMF spec repository
-- stricter Zod-based runtime checks
-
-`src/cmmf/source.ts` resolves the CMMF repository in this order:
-
-- `--cmmf-repo`
-- `CMMF_SPEC_REPO_PATH`
-- sibling checkout at `../content-model-master-format`
-
-The intended upstream repository is [headless-company/content-model-master-format](https://github.com/headless-company/content-model-master-format).
-
-### Rendering
-
-`src/cmmf/render.ts` outputs deterministic YAML with a stable property order so diffs remain readable.
-
-### Safety
-
-`src/cmmf/safety.ts` checks whether returned updates are additive and safe before any write happens.
-
-## Dependency Security
-
-This project intentionally adds stronger-than-default supply-chain controls.
-
-### Repository Policy
-
-- `packageManager` pins npm 11
-- `.npmrc` sets `min-release-age=7`
-- `.npmrc` sets `ignore-scripts=true`
-- `package-lock.json` is the reviewed lockfile
-
-### Verification
-
-Run:
-
-```bash
-npm run deps:verify
-```
-
-This verifies:
-
-- `min-release-age=7` is still present
-- `ignore-scripts=true` is still present
-- npm 11 is still pinned in `package.json`
-- `axios` does not appear in `package-lock.json`
-- `axios` does not appear in the installed dependency graph
-
-## Testing
-
-Current automated coverage includes:
-
-- repo discovery and graphing
-- relevance-aware repo summaries
-- clarification loop behavior
-- destructive update rejection
-- dependency-policy verification
-
-Run tests with:
-
-```bash
-npm test
-```
-
-Run everything with:
-
-```bash
+# CMMF Skills project guide
+
+This repository develops portable CMMF skills and local tools. The host agent owns reasoning, conversation, authentication, permissions, and model-file editing. There is no standalone LLM loop or provider setup.
+
+## Architecture
+
+- `skills/`: six focused `SKILL.md` source entrypoints.
+- `references/`: maintained workflow/source/tool references assembled into each released skill.
+- `src/tools/repository.ts`: tolerant, raw-data-preserving inspection and model relationship graph.
+- `src/tools/source.ts`: canonical source acquisition, historical revision resolution, caching, and evidence.
+- `src/tools/validate.ts`: version-matched JSON Schema validation and cross-model checks.
+- `src/tools/diff.ts`: additive/breaking/uncertain changes and dependent-model impact.
+- `src/tools/document.ts`: catalogues and diagrams derived from the graph.
+- `src/tools/cli.ts`: noninteractive `cmmf-tools` commands.
+- `src/cmmf/instructions.ts`: shared convention-file discovery.
+- `src/index.ts`: provider-free programmatic API.
+- `scripts/`: clean build, portable test execution, dependency checks, and skill packaging/verification.
+- `evals/`: host behavioural evaluation requests and acceptance criteria.
+
+## Development workflow
+
+```sh
+npm ci
 npm run check
 ```
 
-## Release Notes For Public Users
+`check` builds from a clean `dist/`, compiles/runs Node tests, verifies dependency policy, packages skills, and checks standalone execution. Use `npm run build`, `npm test`, `npm run skills:package`, and `npm run skills:verify` for focused work. Run `npm run deps:verify` after building. `npm run clean` removes derived build/test/release output while preserving source caches in `.tmp/`.
 
-If this repo is published publicly, the minimum onboarding path should be:
+Build products include only the current runtime; stale agent/provider entrypoints are removed before compilation. TypeScript compilation does not depend on native esbuild or `tsx`. Packaging includes reviewed JavaScript dependencies and their licenses, so installed skills require Node but no package installation in a model project. The npm workspace is private; skill folders/archive are the current distribution artefacts.
 
-1. install Node and npm versions that satisfy the repo policy
-2. install dependencies with `npm install`
-3. configure `.envrc`
-4. run `direnv allow`
-5. run `npm run inspect` or `npm run generate`
+## Model and source contracts
 
-Documentation that should stay current before release:
+New models default to the latest published/current canonical CMMF source; existing models retain their manifest version. Numeric legacy `1` is resolved explicitly, rather than interpreted as latest 1.x. The skill instructs its host to retrieve the required source and read its normative spec and relevant docs. Tools require a version-matched source directory and expose the actual source revision/hashes.
 
-- README command examples
-- provider auth setup
-- CMMF spec repo setup
-- dependency-security expectations
-- current limitations
-- example prompts for `generate`
+Source acquisition uses a versioned cache outside model directories. Exact cached versions can be reused; `latest` checks upstream unless offline is explicit. Modified cached schemas/specs are rejected. No sibling checkout or environment variable is assumed. A local source can be supplied explicitly without switching or updating its branch.
 
-## Known Environment Caveat
+Inspection preserves unknown raw data and aggregates parse errors. Validation adds schema checks, duplicate model/field ID detection, missing reference/object/rich-text embed targets, object target kind, and editorial label-field checks. Unsupported future helper semantics are reported rather than presented as fully validated. Linked cycles are not universally rejected.
 
-The repository is pinned to npm 11.x features, including `min-release-age`. If a local machine is still on npm 10.x, dependency installation may fail until npm is upgraded to a reviewed npm 11 release.
+Semantic diff considers effective manifest defaults, canonical repeatability and legacy aliases, removed/added values and targets, structure/ownership changes, metadata uncertainty, and transitive dependents. Constraint changes can require content sampling/backfill even when schema YAML is valid. The tools never claim to have migrated stored content.
+
+## Project-specific modelling conventions
+
+The skills/tooling retain these discovery locations:
+
+- `cmmf.instructions.md`, `.txt`, `.yaml`, or `.yml` at the model repository root.
+- Text/Markdown/YAML files inside `.cmmf/` or legacy `.cmmf-agent/`.
+
+For example: require `internal_name`, reuse existing author identities, or explain project-local localisation defaults. These are convention directories, not model storage. Keep guidance concrete and short; inspect output bounds individual instruction content and identifies truncation. Read original files if more context is needed. Explicit user requests take precedence, and conflicts with canonical validity must be explained.
+
+## Tool outputs and edits
+
+Commands support JSON diagnostics and documented exit codes: 0 success, 1 invalid data or breaking/uncertain diff, 2 usage/source/execution failure. See [local tool reference](../references/local-tools.md) for flags and output semantics.
+
+Model inputs are read-only. Use the host editor for requested changes, preserving comments, IDs, unrelated files, and existing work. For consequential breaking decisions not already authorised, prepare the diff and impact assessment before asking for the missing decision. Do not add the retired CLI's mandatory terminal confirmation to ordinary edits.
+
+## Packaging and evaluation
+
+The complete release directory is independently installable. No released reference or helper may depend on this checkout or another installed skill. The verifier checks release hashes, YAML metadata, local references, isolated inspect/validate/document/diff execution, and absence of obsolete generated entrypoints. CI uses the same `npm run check` path.
+
+Installed-skill discovery and modelling quality still require the [host evaluation cases](../evals/core-workflows.md). Helper execution alone does not establish host behaviour. See [installation](skills-quickstart.md), [migration](migration.md), and [progress](implementation-progress.md) for release boundaries.

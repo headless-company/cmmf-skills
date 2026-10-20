@@ -1,8 +1,0 @@
-# Copy this file to .envrc, fill in your local values, then run:
-#   direnv allow
-
-export OPENAI_API_KEY="your_openai_api_key_here"
-# export ANTHROPIC_API_KEY="your_anthropic_api_key_here"
-# export CMMF_AGENT_PROVIDER="openai"
-# export CMMF_AGENT_MODEL="gpt-5.2"
-# export CMMF_SPEC_REPO_PATH="../content-model-master-format"

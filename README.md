@@ -1,166 +1,68 @@
-# CMMF Creation Agent
+# CMMF Skills
 
-CLI agent for generating and updating [Content Model Master Format (CMMF)](/Users/djeglin/Projects/HeadlessCo/content-model-master-format/README.md) models from natural-language instructions.
+Portable skills for discovering, creating, validating, reviewing, documenting, and evolving [Content Model Master Format (CMMF)](https://github.com/headless-company/content-model-master-format) models using your existing coding agent.
 
-## What It Does
+Your agent supplies reasoning, authentication, conversation, and file editing. This repository supplies CMMF workflows, canonical source retrieval, and deterministic local tools. No additional LLM API keys are required; your host's normal access requirements and usage limits apply.
 
-- Generates valid CMMF v1 YAML for new or existing repositories
-- Inspects an existing CMMF repo before proposing changes
-- Asks clarifying questions only when the prompt leaves schema-shaping ambiguity
-- Supports OpenAI and Anthropic behind one provider contract
-- Previews the full change set before writing files
-- Enforces dependency-policy checks, including a 7-day minimum package age and an `axios` ban
-- Uses the canonical CMMF git repository as the schema/spec source instead of keeping a vendored schema copy
+## Skills
 
-## Quick Start
+| Skill | Use it to |
+| --- | --- |
+| `cmmf-discover` | Turn briefs and workshop notes into modelling decisions and material questions |
+| `cmmf-author` | Create or extend models while respecting existing structures and conventions |
+| `cmmf-validate` | Check canonical schema compliance and relationships across a repository |
+| `cmmf-review` | Assess content architecture and editorial usability |
+| `cmmf-document` | Generate model catalogues, field dictionaries, and Mermaid diagrams |
+| `cmmf-evolve` | Analyse changes, dependent models, and migration/backfill needs |
 
-### Requirements
+## Build and install
 
-- Node.js 22+
-- npm 11.10+ or newer
-- `direnv` recommended for project-local credentials
-- An OpenAI API key and/or Anthropic API key
+Contributors need Node.js 22+ and the pinned npm 11 version in `package.json`.
 
-### Install
-
-```bash
-npm install
-```
-
-### Set Up Local Credentials With `direnv`
-
-1. Install `direnv` for your machine.
-2. Hook it into your shell.
-   For `zsh`, add this to `~/.zshrc`:
-
-```bash
-eval "$(direnv hook zsh)"
-```
-
-3. Restart your shell or reload your profile.
-4. In this repo, edit `.envrc` and add your key:
-
-```bash
-export OPENAI_API_KEY="your_openai_api_key_here"
-export CMMF_AGENT_PROVIDER="openai"
-export CMMF_SPEC_REPO_PATH="../content-model-master-format"
-```
-
-5. Allow the file:
-
-```bash
-direnv allow
-```
-
-The repo includes:
-
-- `.envrc` for your local machine only
-- `.envrc.example` as the public template for other users
-
-If you prefer not to use `direnv`, you can still set variables inline per command.
-
-## Common Commands
-
-Inspect a repo:
-
-```bash
-npm run inspect -- --repo /path/to/cmmf-repo
-```
-
-Validate a repo:
-
-```bash
-npm run validate -- --repo /path/to/cmmf-repo
-```
-
-Generate models from a prompt:
-
-```bash
-npm run generate -- "Create a blog post model with reusable author profiles" --repo /path/to/cmmf-repo --provider openai
-```
-
-Run the full local verification suite:
-
-```bash
+```sh
+npm ci
 npm run check
 ```
 
-## How Generate Works
+The check builds the tools, runs tests and dependency checks, assembles all six complete skill directories, and verifies them in isolation. Outputs:
 
-The `generate` command:
+- `release/skills/<skill-name>/`: independently installable skill, references, and local runtime.
+- `release/cmmf-skills.tar.gz`: complete suite archive.
+- `release/manifest.json`: package version and file hashes.
 
-1. Loads `manifest.yaml` and the configured models directory.
-2. Parses existing models into a repo graph of models, references, and object usage.
-3. Builds a compact repo summary plus the most relevant existing models for the prompt.
-4. Calls the selected LLM provider.
-5. Asks clarifying questions only when the answer changes the schema.
-6. Validates the returned manifest/models against local CMMF validation rules.
-7. Blocks destructive updates such as field removal, type changes, or relationship rewrites.
-8. Shows the full YAML preview and writes only after confirmation.
+Copy a complete skill directory into your host's project or personal skill directory. For a Codex project, for example:
 
-If no `manifest.yaml` exists, the CLI can bootstrap a new CMMF repo interactively.
+```sh
+mkdir -p /path/to/project/.agents/skills
+cp -R release/skills/cmmf-author /path/to/project/.agents/skills/
+```
 
-## Provider Configuration
+Use the [installation guide](docs/skills-quickstart.md) for Codex, Claude Code, and GitHub Copilot destinations, updates, and invocation examples. The development `skills/` folders are inputs to packaging; install the assembled folders under `release/skills/` so references and helpers are present.
 
-Supported environment variables:
+Then ask your host: “Use cmmf-author to create article models with reusable authors and embedded SEO metadata.” Installed helpers require Node.js 22+; they need no npm installation in the target repository. Git and permitted network access are needed to retrieve canonical CMMF sources.
 
-- `OPENAI_API_KEY`
-- `ANTHROPIC_API_KEY`
-- `CMMF_AGENT_PROVIDER`
-- `CMMF_AGENT_MODEL`
-- `CMMF_SPEC_REPO_PATH`
+## CMMF versions and local tools
 
-Provider selection order:
+Skills retrieve the latest published/current canonical source for new projects and the manifest-declared version for existing projects. Explicit version requests are honoured without silently upgrading models. Source snapshots record the revision and schema/spec hashes; exact versions can be reused offline, while cached latest cannot establish current freshness.
 
-1. `--provider`
-2. `CMMF_AGENT_PROVIDER`
-3. exactly one configured API key
+Run the local tools after building:
 
-If both providers are configured and no provider is selected, the CLI stops and asks you to choose.
+```sh
+npm run tools -- inspect --repo /path/to/model-repo --format json
+npm run tools -- source --version latest --cache /path/to/source-cache --format json
+npm run tools -- validate --repo /path/to/model-repo --cmmf-repo /path/from/source.root --format json
+npm run tools -- document --repo /path/to/model-repo --cmmf-repo /path/from/source.root
+npm run tools -- diff --before /path/to/before --after /path/to/after --cmmf-repo /path/from/source.root --format json
+```
 
-CMMF spec resolution order:
+The command entrypoint is `cmmf-tools` (`dist/tools/cli.js`). The tools read model repositories; authorised edits are performed by the host agent. Diagnostics cover parse/schema failures, duplicate IDs, missing reference/object/rich-text targets, project instruction discovery, and semantic change impact. They do not validate stored content instances or execute content migrations.
 
-1. `--cmmf-repo`
-2. `CMMF_SPEC_REPO_PATH`
-3. sibling checkout at `../content-model-master-format`
+Project conventions remain supported in `cmmf.instructions.{md,txt,yaml,yml}`, `.cmmf/`, and legacy `.cmmf-agent/`. See the [project guide](docs/project-guide.md).
 
-The expected upstream repo is [headless-company/content-model-master-format](https://github.com/headless-company/content-model-master-format).
+## Status and migration
 
-Default model intent:
+The repository has completed its source cutover from standalone agent to skills. The old `cmmf-agent generate` command, provider adapters, provider configuration, and API-key setup have been removed. See [migration notes](docs/migration.md) for command and API changes. The hosted repository has not been renamed or published by this change; this private npm workspace builds the distributable skill archive.
 
-- OpenAI: lighter model for clarification, stronger model for synthesis
-- Anthropic: Sonnet by default, with Opus reserved as an explicit deeper-reasoning override
+Standalone package execution and local tools are tested. Installed-skill discovery and realistic modelling behaviour in each target host remain evaluation work; native plugin packaging and CMS import/translation are not implemented. See [evaluation cases](evals/core-workflows.md) and [implementation progress](docs/implementation-progress.md).
 
-## Dependency Security Policy
-
-This repo intentionally adds supply-chain constraints:
-
-- `.npmrc` sets `min-release-age=7`
-- `.npmrc` sets `ignore-scripts=true`
-- `package-lock.json` is the reviewed lockfile
-- `npm run deps:verify` fails if `axios` appears in the lockfile or installed dependency graph
-
-CI enforces these checks on every push and pull request.
-
-## Project Structure
-
-- [src/cli.ts](/Users/djeglin/Projects/HeadlessCo/cmmf-creation-agent/src/cli.ts): command entrypoint
-- [src/agent/controller.ts](/Users/djeglin/Projects/HeadlessCo/cmmf-creation-agent/src/agent/controller.ts): orchestration loop
-- [src/cmmf/repo.ts](/Users/djeglin/Projects/HeadlessCo/cmmf-creation-agent/src/cmmf/repo.ts): repo discovery and graph building
-- [src/cmmf/source.ts](/Users/djeglin/Projects/HeadlessCo/cmmf-creation-agent/src/cmmf/source.ts): CMMF spec repository resolution and loading
-- [src/cmmf/validate.ts](/Users/djeglin/Projects/HeadlessCo/cmmf-creation-agent/src/cmmf/validate.ts): manifest/model validation
-- [src/cmmf/safety.ts](/Users/djeglin/Projects/HeadlessCo/cmmf-creation-agent/src/cmmf/safety.ts): destructive-change guardrails
-- [src/providers](/Users/djeglin/Projects/HeadlessCo/cmmf-creation-agent/src/providers): OpenAI and Anthropic adapters
-- [src/security/dependency-policy.ts](/Users/djeglin/Projects/HeadlessCo/cmmf-creation-agent/src/security/dependency-policy.ts): dependency verification
-
-## Documentation
-
-For fuller implementation and release notes, see:
-
-- [docs/project-guide.md](/Users/djeglin/Projects/HeadlessCo/cmmf-creation-agent/docs/project-guide.md)
-
-## Current Limitations
-
-- The CLI requires API keys; it does not support ChatGPT Pro or Claude Pro account login flows.
-- The agent is CMMF-only in v1; it does not translate to CMS-specific schemas.
-- The tool relies on interactive terminal prompts for clarification and final write confirmation.
+Supply-chain controls remain in place: a reviewed lockfile, seven-day minimum package age, disabled install scripts, and dependency-policy verification including the existing `axios` ban.

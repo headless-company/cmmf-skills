@@ -1,7 +1,6 @@
-export { runAgent, previewChangeSet } from "./agent/controller.js";
-export { loadRepoGraph, summarizeRepo } from "./cmmf/repo.js";
-export { renderManifest, renderModel } from "./cmmf/render.js";
-export { resolveCmmfSource, loadSpecExcerpt, formatCmmfSource } from "./cmmf/source.js";
-export { createCmmfValidators } from "./cmmf/validate.js";
-export { createProvider, resolveProviderName } from "./providers/index.js";
-export * from "./types.js";
+export { inspectRepository, type Repository, type ModelFile, type Edge, type Diagnostic, type Data } from "./tools/repository.js";
+export { acquireSource, readSource, canonicalRemote, type SourceEvidence, type AcquireOptions } from "./tools/source.js";
+export { validateRepository, supportedVersions } from "./tools/validate.js";
+export { semanticDiff, type Change } from "./tools/diff.js";
+export { documentRepository } from "./tools/document.js";
+export { loadProjectInstructions, type ProjectInstructionFile } from "./cmmf/instructions.js";
