@@ -162,7 +162,7 @@ Preserve unrelated working changes and existing conventions. Keep instructions s
 | 4. Retire standalone agent | Remove provider SDKs, API-key requirements, model config, interactive generation loop, and obsolete tests; rewrite README/guide and CI; update product/package names. | Default onboarding is install skill → ask host → inspect artefact; useful prior capabilities survive without an extra LLM account setup. |
 | 5. Expand from real use | Add file-based import, one CMS translator, migration mapping, and further outputs based on project evidence. | Each new capability has real fixtures, mapping/loss reporting, and independently verified output. |
 
-The original plan made phases 1–3 dependencies of retiring the old product. On 2026-10-20 the user authorised the source cutover; retirement is now complete while host behavioural evaluation remains open. New deterministic code and skills can replace the old path incrementally; avoid maintaining two full products after the cutover. Renaming the hosted repository and published package is a release decision after compatibility and migration guidance are ready.
+The original plan made phases 1–3 dependencies of retiring the old product. On 2026-10-20 the user authorised the source cutover; retirement is now complete while host behavioural evaluation remains open. New deterministic code and skills can replace the old path incrementally; avoid maintaining two full products after the cutover. The hosted repository is now `headless-company/cmmf-skills`; the npm workspace is also named `cmmf-skills` and remains private. Host behavioural evaluation remains separate from this repository identity change.
 
 ## Validation and definition of done
 

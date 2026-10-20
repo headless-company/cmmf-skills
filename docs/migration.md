@@ -1,6 +1,18 @@
 # Migrating from CMMF Creation Agent to CMMF Skills
 
-The source cutover is complete as of 2026-10-20. The workspace package is `cmmf-skills` 0.2.0. The primary deliverables are complete skill directories and the suite archive, built with `npm run check` or `npm run skills:package`. The npm workspace is private; no package or hosted repository rename is published by this change.
+The source cutover is complete as of 2026-10-20. The workspace package is `cmmf-skills` 0.2.0. The primary deliverables are complete skill directories and the suite archive, built with `npm run check` or `npm run skills:package`. The hosted repository is now [headless-company/cmmf-skills](https://github.com/headless-company/cmmf-skills). The npm workspace remains private; no npm package has been published.
+
+## Existing Git checkouts
+
+Update origin to the renamed repository:
+
+```sh
+git remote set-url origin git@github.com:headless-company/cmmf-skills.git
+git remote -v
+git fetch origin
+```
+
+For HTTPS checkouts, use `https://github.com/headless-company/cmmf-skills.git` instead. The repository name is **CMMF Skills**; this replaces the previous standalone-agent identity. Existing local directory names can stay as they are.
 
 ## Workflow changes
 

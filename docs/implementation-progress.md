@@ -2,6 +2,10 @@
 
 Updated: 2026-10-20. The repository now uses skills as its sole product workflow. Cross-host behavioural evaluation remains pending.
 
+## Repository identity — 2026-10-20
+
+The skills cutover was committed and pushed as `60689c4`. The GitHub repository has been renamed to [headless-company/cmmf-skills](https://github.com/headless-company/cmmf-skills), its description now identifies the skills and local tools, and this checkout's origin is `git@github.com:headless-company/cmmf-skills.git`. README, installation/migration guidance, and package repository metadata use the new source location. Historical agent names remain only where they explain migration or supported legacy conventions.
+
 ## Agent retirement — 2026-10-20
 
 The user authorised the source cutover. The workspace is now `cmmf-skills` 0.2.0, with `cmmf-tools` as its only CLI entrypoint. Provider adapters, agent orchestration/prompts, old strict validation/rendering/types, API-key setup instructions/template, and obsolete tests/scripts have been removed. The raw-data-preserving tools and six skills are the replacement. Existing convention discovery, including `.cmmf-agent/`, is retained and covered through the new workflow.

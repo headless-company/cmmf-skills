@@ -4,6 +4,13 @@ CMMF Skills is the sole product workflow in this repository. The six skills and 
 
 ## Build and verify
 
+Clone [headless-company/cmmf-skills](https://github.com/headless-company/cmmf-skills) for a fresh checkout:
+
+```sh
+git clone https://github.com/headless-company/cmmf-skills.git
+cd cmmf-skills
+```
+
 Use the repository's reviewed Node/npm requirements and lockfile. No LLM provider credentials are needed for these commands.
 
 ```sh
