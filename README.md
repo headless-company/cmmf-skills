@@ -51,6 +51,8 @@ Then ask your host: “Use cmmf-author to create article models with reusable au
 
 Skills retrieve the latest published/current canonical source for new projects and the manifest-declared version for existing projects. Explicit version requests are honoured without silently upgrading models. Source snapshots record the revision and schema/spec hashes; exact versions can be reused offline, while cached latest cannot establish current freshness.
 
+The tools support CMMF legacy `1`, `1.1.0`, `1.2.0`, `1.2.1`, and `1.3.0-beta.1`. Version 1.2.1 permits camel-case IDs; beta casing rules depend on the selected source revision (see [source resolution](references/source-resolution.md)). Beta document-level validation hints receive declaration and semantic checks, appear in generated documentation, and are tracked by semantic diff; the tools do not evaluate hints against content or execute expression dialects. Request the beta explicitly; `latest` prefers stable release tags when available.
+
 Run the local tools after building:
 
 ```sh
@@ -70,5 +72,7 @@ Project conventions remain supported in `cmmf.instructions.{md,txt,yaml,yml}`, `
 The repository has completed its source cutover from standalone agent to skills. The old `cmmf-agent generate` command, provider adapters, provider configuration, and API-key setup have been removed. See [migration notes](docs/migration.md) for command and API changes. The source repository is now [headless-company/cmmf-skills](https://github.com/headless-company/cmmf-skills). This private npm workspace builds the distributable skill archive; no npm package has been published.
 
 Standalone package execution and local tools are tested. Installed-skill discovery and realistic modelling behaviour in each target host remain evaluation work; native plugin packaging and CMS import/translation are not implemented. See [evaluation cases](evals/core-workflows.md) and [implementation progress](docs/implementation-progress.md).
+
+For the documentation-site migration, use the [full website handover](docs/docs-site-handover.md): individual skill guidance, installation and workflows, expected outputs, team acceptance criteria, and the page/link/provenance changes needed in the docs site.
 
 Supply-chain controls remain in place: a reviewed lockfile, seven-day minimum package age, disabled install scripts, and dependency-policy verification including the existing `axios` ban.

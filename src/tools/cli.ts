@@ -8,7 +8,7 @@ import { documentRepository } from "./document.js";
 
 const help = `CMMF local tools (no LLM provider credentials)
   inspect  --repo PATH [--format json]
-  source   --version latest|1.2.0|1 --cache PATH [--offline] [--remote URL]
+  source   --version latest|1.2.1|1.3.0-beta.1|1 --cache PATH [--offline] [--remote URL]
   validate --repo PATH --cmmf-repo SOURCE [--format json]
   diff     --before PATH --after PATH --cmmf-repo SOURCE [--after-cmmf-repo SOURCE] [--format json]
   document --repo PATH --cmmf-repo SOURCE [--format json]

@@ -11,13 +11,18 @@ import { inspectRepository } from "./repository.js";
 import { validateRepository } from "./validate.js";
 import { semanticDiff } from "./diff.js";
 import { documentRepository } from "./document.js";
-import { acquireSource, readSource } from "./source.js";
+import { acquireSource, readSource, declaredVersion } from "./source.js";
 import { stringifyYaml } from "../utils/yaml.js";
 
 const exec = promisify(execFile);
 async function sourceFixture(version = "1.2.0"): Promise<string> {
   const root = await createCmmfSourceFixture({ specFiles: { [`cmmf-v${version}.md`]: `# Content Model Master Format ${version}\n` } });
   const file = path.join(root, "schemas/model.schema.json");
+  if (["1.2.0", "1.2.1", "1.3.0-beta.1"].includes(version)) {
+    await writeFile(file, await readFile(path.resolve("src/test-support/schemas", `${version}.json`)));
+    await writeFile(path.join(root, "README.md"), `Current specification: ${version}\n`);
+    return root;
+  }
   const schema = JSON.parse(await readFile(file, "utf8"));
   schema.title = `CMMF ${version} Model Schema`;
   schema.definitions.field.properties.richTextConfig = {
@@ -69,6 +74,85 @@ test("source mismatch and future helper semantics cannot be presented as fully v
   assert.ok((await validateRepository(repo, source)).some(issue => issue.code === "SOURCE_VERSION_MISMATCH"));
   const future = await readSource(await sourceFixture("2.0.0"));
   assert.ok((await validateRepository(repo, future)).some(issue => issue.code === "HELPER_VERSION_UNSUPPORTED"));
+});
+
+const hintedModel = { id: "ArticleType", name: "Article", kind: "entry", fields: [
+  { id: "articleType", type: "enum", values: ["external", "internal"] },
+  { id: "sourceUrl", type: "string" },
+  { id: "price", type: "number" },
+  { id: "enabled", type: "boolean" },
+  { id: "tags", type: "string", list: true },
+], validationHints: [
+  { id: "sourceRequired", description: "External articles need a source.", when: { allOf: [
+    { field: "articleType", equals: "external" }, { not: { field: "sourceUrl", isNotEmpty: true } },
+  ] }, then: { require: ["sourceUrl"] } },
+  { id: "priceBound", description: "Check price.", when: { anyOf: [{ field: "price", gt: 0 }, { field: "enabled", in: [true, null] }] }, then: { forbid: ["tags"] } },
+  { id: "urlPattern", description: "Source uses HTTPS.", when: { field: "sourceUrl", matches: "^https://" }, then: { atLeastOneOf: ["sourceUrl", "tags"], atMostOneOf: ["sourceUrl"], exactlyOneOf: ["enabled"] } },
+  { id: "editorialAdvice", description: "Have an editor check this.", severity: "info" },
+  { id: "externalDialect", description: "Preserve an unknown expression without execution.", expression: { dialect: "unknown-dialect", rule: { anything: "opaque" } } },
+] };
+
+test("version parsing preserves prereleases and rejects partial or malformed versions", () => {
+  for (const version of ["1", "1.2.1", "1.3.0-beta.1"]) assert.equal(declaredVersion({ title: `CMMF ${version} Model Schema` }), version);
+  for (const version of ["1.3.0-beta.", "1.3.0-beta.01", "1.3.0-", "1.2.1garbage", "01.2.1"]) assert.equal(declaredVersion({ title: `CMMF ${version} Model Schema` }), null);
+});
+
+test("new-version CLIs inspect, validate, document and diff case-sensitive models", async () => {
+  const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
+  for (const version of ["1.2.1", "1.3.0-beta.1"]) {
+    const model = version === "1.3.0-beta.1" ? hintedModel : { ...hintedModel, validationHints: undefined };
+    const root = await repoFixture([model], { specVersion: version, namespace: "test.versions" });
+    const source = await sourceFixture(version);
+    for (const command of ["inspect", "validate", "document", "diff"]) {
+      const args = command === "diff" ? ["--before", root, "--after", root] : ["--repo", root];
+      if (command !== "inspect") args.push("--cmmf-repo", source);
+      const { stdout } = await exec(process.execPath, [cli, command, ...args, "--format", "json"]);
+      const result = JSON.parse(stdout);
+      assert.deepEqual(result.diagnostics, []);
+      if (command !== "inspect") assert.equal(result.valid, true);
+      if (command === "diff") assert.deepEqual(result.changes, []);
+      if (command === "document") {
+        assert.match(result.markdown, /articleType/);
+        if (version === "1.3.0-beta.1") assert.match(result.markdown, /sourceRequired/);
+      }
+    }
+  }
+  const old = await inspectRepository(await repoFixture([{ ...hintedModel, validationHints: undefined }]));
+  assert.ok((await validateRepository(old, await readSource(await sourceFixture()))).some(d => d.code === "MODEL_SCHEMA_INVALID"));
+});
+
+test("beta hints reject invalid declarations and semantic references without evaluating content", async () => {
+  const source = await readSource(await sourceFixture("1.3.0-beta.1"));
+  const check = async (hints: unknown[]) => validateRepository(await inspectRepository(await repoFixture([{ ...hintedModel, validationHints: hints }], { specVersion: source.version, namespace: "beta" })), source);
+  const hint = (when: unknown) => ({ id: "check", description: "Check.", when, then: { require: ["sourceUrl"] } });
+  for (const [hints, code] of [
+    [[hint({ field: "price", equals: "10" })], "VALIDATION_HINT_OPERAND_TYPE"],
+    [[hint({ field: "enabled", in: [true, "false"] })], "VALIDATION_HINT_OPERAND_TYPE"],
+    [[hint({ field: "tags", equals: "tag" })], "VALIDATION_HINT_OPERATOR_TYPE"],
+    [[hint({ field: "sourceUrl", gt: 3 })], "VALIDATION_HINT_OPERATOR_TYPE"],
+    [[hint({ not: { anyOf: [{ field: "SourceUrl", isEmpty: true }] } })], "VALIDATION_HINT_FIELD_MISSING"],
+    [[{ id: "bad", description: "Check.", then: { require: ["missing"] } }], "VALIDATION_HINT_FIELD_MISSING"],
+    [[hint({ field: "sourceUrl", matches: "[" })], "VALIDATION_HINT_REGEX_INVALID"],
+    [[...hintedModel.validationHints, hintedModel.validationHints[0]], "VALIDATION_HINT_ID_DUPLICATE"],
+    [[{ ...hintedModel.validationHints[0], expression: { dialect: "custom", rule: null } }], "MODEL_SCHEMA_INVALID"],
+    [[{ id: "bad", description: " ", then: { require: [] } }], "MODEL_SCHEMA_INVALID"],
+  ] as Array<[unknown[], string]>) assert.ok((await check(hints)).some(d => d.code === code), code);
+  assert.deepEqual(await check(hintedModel.validationHints), []);
+  const before = await inspectRepository(await repoFixture([hintedModel]));
+  const after = await inspectRepository(await repoFixture([{ ...hintedModel, validationHints: [] }]));
+  assert.ok(semanticDiff(before, after).some(c => c.code === "VALIDATION_HINTS_CHANGED" && c.classification === "uncertain"));
+});
+
+test("the selected beta schema remains authoritative when a later beta branch changes casing", async () => {
+  const root = await sourceFixture("1.3.0-beta.1");
+  await writeFile(path.join(root, "schemas/model.schema.json"), await readFile(path.resolve("src/test-support/schemas/1.3.0-beta.1-tagged.json")));
+  const source = await readSource(root);
+  const repo = await inspectRepository(await repoFixture([hintedModel], { specVersion: source.version, namespace: "beta.tagged" }));
+  const diagnostics = await validateRepository(repo, source);
+  assert.ok(diagnostics.some(d => d.code === "MODEL_SCHEMA_INVALID"));
+  assert.ok(!diagnostics.some(d => d.code === "HELPER_VERSION_UNSUPPORTED"));
+  const lowercase = { id: "article", name: "Article", kind: "entry", fields: [{ id: "url", type: "string" }], validationHints: [{ id: "source", description: "Provide a source.", then: { require: ["url"] } }] };
+  assert.deepEqual(await validateRepository(await inspectRepository(await repoFixture([lowercase], { specVersion: source.version, namespace: "beta.tagged" })), source), []);
 });
 
 test("path escape and model directory symlinks do not read outside the selected repository", async () => {
@@ -136,7 +220,7 @@ test("canonical snapshots resolve latest, historical and numeric legacy sources 
   async function git(...args: string[]) { await exec("git", ["-C", upstream, ...args]); }
   await git("init"); await git("config", "user.name", "CMMF Test"); await git("config", "user.email", "test@example.invalid");
   await git("add", "."); await git("commit", "-m", "Legacy"); await git("tag", "v1.0.0");
-  for (const version of ["1.1.0", "1.2.0"]) {
+  for (const version of ["1.1.0", "1.2.0", "1.2.1", "1.3.0-beta.1"]) {
     const schemaFile = path.join(upstream, "schemas/model.schema.json");
     const schema = JSON.parse(await readFile(schemaFile, "utf8")); schema.title = `CMMF ${version} Model Schema`;
     await writeFile(schemaFile, JSON.stringify(schema));
@@ -146,8 +230,12 @@ test("canonical snapshots resolve latest, historical and numeric legacy sources 
   }
   const cache = await mkdtemp(path.join(tmpdir(), "cmmf-source-cache-"));
   const latest = await acquireSource({ cache, version: "latest", remote: upstream });
-  assert.equal(latest.version, "1.2.0"); assert.match(latest.revision ?? "", /^[a-f0-9]{40}$/);
-  assert.equal(await readFile(latest.schemaFile, "utf8"), await readFile(path.join(upstream, "schemas/model.schema.json"), "utf8"));
+  assert.equal(latest.version, "1.2.1"); assert.match(latest.revision ?? "", /^[a-f0-9]{40}$/);
+  assert.equal(await readFile(latest.schemaFile, "utf8"), (await exec("git", ["-C", upstream, "show", "v1.2.1:schemas/model.schema.json"])).stdout);
+  const beta = await acquireSource({ cache, version: "1.3.0-beta.1", remote: upstream });
+  assert.equal(beta.version, "1.3.0-beta.1");
+  assert.notEqual(beta.revision, latest.revision);
+  assert.equal((await acquireSource({ cache, version: "1.3.0-beta.1", remote: upstream, offline: true })).revision, beta.revision);
   const historical = await acquireSource({ cache, version: "1.1.0", remote: upstream });
   assert.equal(historical.version, "1.1.0"); assert.notEqual(historical.revision, latest.revision);
   const legacy = await acquireSource({ cache, version: "1", remote: upstream });
@@ -158,8 +246,10 @@ test("canonical snapshots resolve latest, historical and numeric legacy sources 
   await assert.rejects(acquireSource({ cache, version: "1.1.0", remote: upstream, offline: true }), /differ from recorded hashes/);
   await assert.rejects(acquireSource({ cache, version: "1.1.0", remote: upstream }), /differ from recorded hashes/);
   // Without release tags, the canonical README/schema at remote HEAD provides latest.
-  await git("tag", "-d", "v1.0.0", "v1.1.0", "v1.2.0");
+  await git("tag", "-d", "v1.0.0", "v1.1.0", "v1.2.0", "v1.2.1", "v1.3.0-beta.1");
   const untaggedCache = await mkdtemp(path.join(tmpdir(), "cmmf-untagged-cache-"));
-  assert.equal((await acquireSource({ cache: untaggedCache, version: "latest", remote: upstream })).version, "1.2.0");
+  assert.equal((await acquireSource({ cache: untaggedCache, version: "latest", remote: upstream })).version, "1.3.0-beta.1");
+  assert.equal((await acquireSource({ cache: untaggedCache, version: "1.3.0-beta.1", remote: upstream })).version, "1.3.0-beta.1");
+  assert.equal((await acquireSource({ cache: untaggedCache, version: "1.2.1", remote: upstream })).version, "1.2.1");
   await assert.rejects(acquireSource({ cache, version: "9.9.9", remote: upstream }), /No canonical source revision/);
 });

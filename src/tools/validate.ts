@@ -2,11 +2,12 @@ import AjvModule, { type ErrorObject } from "ajv";
 import { readFile } from "node:fs/promises";
 import { fields, record, issue, type Diagnostic, type Repository } from "./repository.js";
 import type { SourceEvidence } from "./source.js";
+import { validateHints } from "./validation-hints.js";
 
 const Ajv = AjvModule as unknown as new (options: Record<string, unknown>) => {
   compile(schema: unknown): { (data: unknown): boolean; errors?: ErrorObject[] | null };
 };
-export const supportedVersions = ["1", "1.1.0", "1.2.0"];
+export const supportedVersions = ["1", "1.1.0", "1.2.0", "1.2.1", "1.3.0-beta.1"];
 
 export async function validateRepository(repo: Repository, source: SourceEvidence): Promise<Diagnostic[]> {
   const diagnostics = [...repo.diagnostics];
@@ -27,9 +28,11 @@ export async function validateRepository(repo: Repository, source: SourceEvidenc
   const validate = new Ajv({ allErrors: true, strict: false }).compile(schema);
   const ids = new Map<string, string>();
   for (const { file, data } of repo.models) {
-    if (!validate(data)) for (const error of validate.errors ?? []) {
+    const schemaValid = validate(data);
+    if (!schemaValid) for (const error of validate.errors ?? []) {
       diagnostics.push(issue("MODEL_SCHEMA_INVALID", file, error.instancePath, `${error.message ?? "Schema validation failed"} (${error.schemaPath})`));
     }
+    if (schemaValid && source.version === "1.3.0-beta.1") diagnostics.push(...validateHints(data, file));
     if (typeof data.id !== "string") continue;
     if (ids.has(data.id)) diagnostics.push(issue("MODEL_ID_DUPLICATE", file, "id", `Model ${data.id} is also defined in ${ids.get(data.id)}.`));
     else ids.set(data.id, file);

@@ -5,6 +5,8 @@ import { mkdir, readFile, writeFile, mkdtemp, rename, rm, lstat } from "node:fs/
 import path from "node:path";
 
 const exec = promisify(execFile);
+const semanticVersion = String.raw`(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?`;
+const versionToken = `(?:1|${semanticVersion})`;
 export const canonicalRemote = "https://github.com/headless-company/content-model-master-format.git";
 export interface SourceEvidence {
   root: string;
@@ -26,10 +28,10 @@ export function declaredVersion(schema: unknown): string | null {
   if (!schema || typeof schema !== "object") return null;
   const title = (schema as { title?: unknown }).title;
   if (typeof title !== "string") return null;
-  return /\bCMMF\s+v?(\d+(?:\.\d+){0,2})(?:\s|$)/i.exec(title)?.[1] ?? null;
+  return new RegExp(`\\bCMMF\\s+v?(${versionToken})(?:\\s|$)`, "i").exec(title)?.[1] ?? null;
 }
 function checkVersion(version: string): void {
-  if (version !== "latest" && !/^(?:1|\d+\.\d+\.\d+)$/.test(version)) throw new Error("Version must be latest, a semantic version such as 1.2.0, or legacy 1.");
+  if (version !== "latest" && !new RegExp(`^${versionToken}$`).test(version)) throw new Error("Version must be latest, a version such as 1.2.1 or 1.3.0-beta.1, or legacy 1.");
 }
 export async function readSource(rootDir: string, requestedVersion?: string): Promise<SourceEvidence> {
   const root = path.resolve(rootDir);

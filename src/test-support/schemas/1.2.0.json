@@ -1,0 +1,343 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CMMF 1.2.0 Model Schema",
+  "type": "object",
+  "required": ["id", "name", "kind", "fields"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["entry", "component", "object", "taxonomy", "settings"]
+    },
+    "description": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "localisation": {
+      "type": "boolean"
+    },
+    "singleton": {
+      "type": "boolean"
+    },
+    "fields": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/field"
+      }
+    },
+    "editorial": {
+      "$ref": "#/definitions/editorial"
+    },
+    "governance": {
+      "type": "object"
+    },
+    "translationHints": {
+      "type": "object"
+    }
+  },
+  "definitions": {
+    "field": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "string",
+            "text",
+            "number",
+            "boolean",
+            "date",
+            "datetime",
+            "slug",
+            "enum",
+            "richText",
+            "asset",
+            "json",
+            "object",
+            "reference"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "localisation": {
+          "type": "boolean"
+        },
+        "default": {},
+        "list": {
+          "type": "boolean",
+          "description": "Canonical repeatability flag for any field type in CMMF 1.2.0."
+        },
+        "objectType": {
+          "type": "string"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "relation": {
+          "$ref": "#/definitions/relation"
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "richTextConfig": {
+          "$ref": "#/definitions/richTextConfig"
+        },
+        "validations": {
+          "type": "object"
+        },
+        "editorial": {
+          "$ref": "#/definitions/editorial"
+        },
+        "translationHints": {
+          "type": "object"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "object"
+              }
+            }
+          },
+          "then": {
+            "required": ["objectType"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "reference"
+              }
+            }
+          },
+          "then": {
+            "required": ["targets"]
+          }
+        },
+        {
+          "if": {
+            "required": ["type", "list", "relation"],
+            "properties": {
+              "type": {
+                "const": "reference"
+              },
+              "list": {
+                "const": true
+              },
+              "relation": {
+                "type": "object",
+                "required": ["cardinality"],
+                "properties": {
+                  "cardinality": {
+                    "const": "one"
+                  }
+                }
+              }
+            }
+          },
+          "then": false
+        },
+        {
+          "if": {
+            "required": ["type", "list", "relation"],
+            "properties": {
+              "type": {
+                "const": "reference"
+              },
+              "list": {
+                "const": false
+              },
+              "relation": {
+                "type": "object",
+                "required": ["cardinality"],
+                "properties": {
+                  "cardinality": {
+                    "const": "many"
+                  }
+                }
+              }
+            }
+          },
+          "then": false
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "enum"
+              }
+            }
+          },
+          "then": {
+            "required": ["values"]
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "not": {
+                  "const": "richText"
+                }
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": ["richTextConfig"]
+            }
+          }
+        }
+      ]
+    },
+    "richTextConfig": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "marks": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          }
+        },
+        "blocks": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          }
+        },
+        "embeds": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/richTextEmbed"
+          }
+        }
+      }
+    },
+    "richTextEmbed": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["asset", "reference"]
+        },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "reference"
+              }
+            }
+          },
+          "then": {
+            "required": ["targets"]
+          }
+        }
+      ]
+    },
+    "relation": {
+      "type": "object",
+      "properties": {
+        "cardinality": {
+          "type": "string",
+          "enum": ["one", "many"],
+          "description": "Legacy compatibility alias for reference repeatability. Prefer field-level `list` in CMMF 1.2.0."
+        },
+        "ordered": {
+          "type": "boolean"
+        },
+        "uniqueItems": {
+          "type": "boolean"
+        },
+        "minItems": {
+          "type": "number"
+        },
+        "maxItems": {
+          "type": "number"
+        },
+        "ownership": {
+          "type": "string",
+          "enum": ["linked", "contained"]
+        }
+      }
+    },
+    "editorial": {
+      "type": "object",
+      "properties": {
+        "labelField": {
+          "type": "string"
+        },
+        "preview": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "image": {
+              "type": "string"
+            }
+          }
+        },
+        "helpText": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

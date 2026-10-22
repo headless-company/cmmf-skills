@@ -18,6 +18,7 @@ export function documentRepository(repo: Repository): string {
     const defaults = record(repo.manifest?.defaults) ? repo.manifest.defaults : {};
     for (const field of fields(data)) lines.push(`| ${markdown(field.id)} | ${markdown(field.type)} | ${markdown(field.required ?? defaults.required ?? false)} | ${markdown(field.localisation ?? defaults.localisation ?? false)} | ${repeatable(field)} | ${markdown(field.description)} |`);
     lines.push("");
+    if (data.validationHints) lines.push("### Document-level validation hints", "", "These hints declare validation intent; they do not enforce content constraints. Omitted severity means error. Expressions are preserved without execution.", "", "```json", JSON.stringify(data.validationHints, null, 2), "```", "");
     for (const key of ["editorial", "governance"] as const) if (data[key]) lines.push(`${key}:`, "", "```json", JSON.stringify(data[key], null, 2), "```", "");
   }
   return `${lines.join("\n")}\n`;

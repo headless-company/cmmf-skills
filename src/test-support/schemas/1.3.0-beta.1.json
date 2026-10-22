@@ -1,0 +1,720 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CMMF 1.3.0-beta.1 Model Schema",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "kind",
+    "fields"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "entry",
+        "component",
+        "object",
+        "taxonomy",
+        "settings"
+      ]
+    },
+    "description": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "localisation": {
+      "type": "boolean"
+    },
+    "singleton": {
+      "type": "boolean"
+    },
+    "fields": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/field"
+      }
+    },
+    "editorial": {
+      "$ref": "#/definitions/editorial"
+    },
+    "governance": {
+      "type": "object"
+    },
+    "translationHints": {
+      "type": "object"
+    },
+    "validationHints": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/validationHint"
+      }
+    }
+  },
+  "definitions": {
+    "field": {
+      "type": "object",
+      "required": [
+        "id",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "string",
+            "text",
+            "number",
+            "boolean",
+            "date",
+            "datetime",
+            "slug",
+            "enum",
+            "richText",
+            "asset",
+            "json",
+            "object",
+            "reference"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "localisation": {
+          "type": "boolean"
+        },
+        "default": {},
+        "list": {
+          "type": "boolean",
+          "description": "Canonical repeatability flag for any field type."
+        },
+        "objectType": {
+          "type": "string"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "relation": {
+          "$ref": "#/definitions/relation"
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "richTextConfig": {
+          "$ref": "#/definitions/richTextConfig"
+        },
+        "validations": {
+          "type": "object"
+        },
+        "editorial": {
+          "$ref": "#/definitions/editorial"
+        },
+        "translationHints": {
+          "type": "object"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "object"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "objectType"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "reference"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "targets"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "type",
+              "list",
+              "relation"
+            ],
+            "properties": {
+              "type": {
+                "const": "reference"
+              },
+              "list": {
+                "const": true
+              },
+              "relation": {
+                "type": "object",
+                "required": [
+                  "cardinality"
+                ],
+                "properties": {
+                  "cardinality": {
+                    "const": "one"
+                  }
+                }
+              }
+            }
+          },
+          "then": false
+        },
+        {
+          "if": {
+            "required": [
+              "type",
+              "list",
+              "relation"
+            ],
+            "properties": {
+              "type": {
+                "const": "reference"
+              },
+              "list": {
+                "const": false
+              },
+              "relation": {
+                "type": "object",
+                "required": [
+                  "cardinality"
+                ],
+                "properties": {
+                  "cardinality": {
+                    "const": "many"
+                  }
+                }
+              }
+            }
+          },
+          "then": false
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "enum"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "values"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "not": {
+                  "const": "richText"
+                }
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "richTextConfig"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "richTextConfig": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "marks": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          }
+        },
+        "blocks": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          }
+        },
+        "embeds": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/richTextEmbed"
+          }
+        }
+      }
+    },
+    "richTextEmbed": {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "asset",
+            "reference"
+          ]
+        },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "reference"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "targets"
+            ]
+          }
+        }
+      ]
+    },
+    "relation": {
+      "type": "object",
+      "properties": {
+        "cardinality": {
+          "type": "string",
+          "enum": [
+            "one",
+            "many"
+          ],
+          "description": "Legacy compatibility alias for reference repeatability. Prefer field-level `list`."
+        },
+        "ordered": {
+          "type": "boolean"
+        },
+        "uniqueItems": {
+          "type": "boolean"
+        },
+        "minItems": {
+          "type": "number"
+        },
+        "maxItems": {
+          "type": "number"
+        },
+        "ownership": {
+          "type": "string",
+          "enum": [
+            "linked",
+            "contained"
+          ]
+        }
+      }
+    },
+    "editorial": {
+      "type": "object",
+      "properties": {
+        "labelField": {
+          "type": "string"
+        },
+        "preview": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "image": {
+              "type": "string"
+            }
+          }
+        },
+        "helpText": {
+          "type": "string"
+        }
+      }
+    },
+    "validationHint": {
+      "type": "object",
+      "required": [
+        "id",
+        "description"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "description": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info"
+          ],
+          "default": "error"
+        },
+        "when": {
+          "$ref": "#/definitions/validationCondition"
+        },
+        "then": {
+          "$ref": "#/definitions/validationAction"
+        },
+        "expression": {
+          "type": "object",
+          "required": [
+            "dialect",
+            "rule"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "dialect": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+            },
+            "rule": {}
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "when"
+            ]
+          },
+          "then": {
+            "required": [
+              "then"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "expression"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "when"
+                  ]
+                },
+                {
+                  "required": [
+                    "then"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "validationCondition": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/validationPredicate"
+        },
+        {
+          "type": "object",
+          "required": [
+            "allOf"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "allOf": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/definitions/validationCondition"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "anyOf"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "anyOf": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/definitions/validationCondition"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "not"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "not": {
+              "$ref": "#/definitions/validationCondition"
+            }
+          }
+        }
+      ]
+    },
+    "validationPredicate": {
+      "type": "object",
+      "required": [
+        "field"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "equals": {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        },
+        "notEquals": {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        },
+        "in": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "notIn": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "isEmpty": {
+          "const": true
+        },
+        "isNotEmpty": {
+          "const": true
+        },
+        "matches": {
+          "type": "string"
+        },
+        "gt": {
+          "type": "number"
+        },
+        "gte": {
+          "type": "number"
+        },
+        "lt": {
+          "type": "number"
+        },
+        "lte": {
+          "type": "number"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "equals"
+          ]
+        },
+        {
+          "required": [
+            "notEquals"
+          ]
+        },
+        {
+          "required": [
+            "in"
+          ]
+        },
+        {
+          "required": [
+            "notIn"
+          ]
+        },
+        {
+          "required": [
+            "isEmpty"
+          ]
+        },
+        {
+          "required": [
+            "isNotEmpty"
+          ]
+        },
+        {
+          "required": [
+            "matches"
+          ]
+        },
+        {
+          "required": [
+            "gt"
+          ]
+        },
+        {
+          "required": [
+            "gte"
+          ]
+        },
+        {
+          "required": [
+            "lt"
+          ]
+        },
+        {
+          "required": [
+            "lte"
+          ]
+        }
+      ]
+    },
+    "validationAction": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "require": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$"
+          }
+        },
+        "forbid": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$"
+          }
+        },
+        "atLeastOneOf": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$"
+          }
+        },
+        "atMostOneOf": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$"
+          }
+        },
+        "exactlyOneOf": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$"
+          }
+        }
+      }
+    }
+  }
+}

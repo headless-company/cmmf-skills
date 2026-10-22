@@ -62,8 +62,9 @@ export function semanticDiff(before: Repository, after: Repository): Change[] {
       if (!isDeepStrictEqual(remainder(field), remainder(replacement))) add("FIELD_METADATA_CHANGED", "uncertain", id, "Other field constraints, rich-text capabilities, defaults, or metadata changed; review content/editorial impact.", fieldId);
     }
     for (const [fieldId, field] of newFields) if (!oldFields.has(fieldId)) add("FIELD_ADDED", effective(after, field, "required") === true ? "breaking" : "additive", id, "Field added; required fields may need content backfill.", fieldId);
-    const { fields: ignoredOldFields, kind: ignoredOldKind, ...oldMeta } = model;
-    const { fields: ignoredNewFields, kind: ignoredNewKind, ...newMeta } = next;
+    if (!isDeepStrictEqual(model.validationHints, next.validationHints)) add("VALIDATION_HINTS_CHANGED", "uncertain", id, "Document-level validation intent changed; review content and translator impact. Hints are not enforced by this tool.");
+    const { fields: ignoredOldFields, kind: ignoredOldKind, validationHints: ignoredOldHints, ...oldMeta } = model;
+    const { fields: ignoredNewFields, kind: ignoredNewKind, validationHints: ignoredNewHints, ...newMeta } = next;
     if (!isDeepStrictEqual(oldMeta, newMeta)) add("MODEL_METADATA_CHANGED", "uncertain", id, "Model metadata changed; review governance/editorial impact.");
   }
   for (const id of newModels.keys()) if (!oldModels.has(id)) add("MODEL_ADDED", "additive", id, "Model added.");
